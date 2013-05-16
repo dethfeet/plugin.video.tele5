@@ -1,8 +1,8 @@
 import xbmcplugin
 import xbmcgui
-#import xbmcaddon
+
 import sys
-import urllib, urllib2, urlparse
+import urllib, urllib2
 import re
 
 import httplib
