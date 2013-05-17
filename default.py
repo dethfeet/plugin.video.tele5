@@ -26,7 +26,7 @@ def mainPage():
     
     for show in _regex_extractShow.finditer(shows):
         img = baseUrl+'/../'+show.group(2)
-        title = show.group(3).replace("\n"," ")
+        title = unicode(show.group(3).replace("\n"," "), "latin-1")
         addDirectoryItem(title, parameters={"action":"show", "link":show.group(1)}, pic=img, folder=True)
     xbmcplugin.endOfDirectory(thisPlugin)
 
