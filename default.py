@@ -12,6 +12,8 @@ from pyamf import AMF0, AMF3
 from pyamf import remoting
 from pyamf.remoting.client import RemotingService
 
+import urlresolver
+import json
 
 thisPlugin = int(sys.argv[1])
 
@@ -50,7 +52,6 @@ def episodePage(link):
     link = urllib.unquote(link)
     episode = link[1:]
     clip_info = get_clip_info(episode)
-
     
     try:
         filename = clip_info[0]['filename']
@@ -58,7 +59,23 @@ def episodePage(link):
         item = xbmcgui.ListItem(path=stream_url)
         item.setProperty('PlayPath', filename); 
     except KeyError:
-        stream_url = baseUrl+"/../"+clip_info[0]['path']
+        if clip_info[0]['path'] == "/":
+            #YouTube oder Soundcloud
+            _regexExtractIframe = re.compile("<iframe .*?src=\"(.*?)\".*?></iframe>")
+            iframe_src = _regexExtractIframe.search(clip_info[0]['quelle']).group(1)
+            
+            if iframe_src.find('soundcloud'):
+                #Soundcloud
+                _regexExtractSoundcloudId = re.compile("tracks%2F(.*?)&")
+                soundcloudId = _regexExtractSoundcloudId.search(iframe_src).group(1)
+                soundcloudPage = load_page("https://api.soundcloud.com/i1/tracks/"+soundcloudId+"/streams?client_id=0f8fdbbaa21a9bd18210986a7dc2d72c&format=json")
+                soundcloudJson = json.loads(soundcloudPage)
+                stream_url = soundcloudJson['http_mp3_128_url']
+            else:
+                #YouTube
+                stream_url = urlresolver.resolve(iframe_src)
+        else:
+            stream_url = baseUrl+"/../"+clip_info[0]['path']
         item = xbmcgui.ListItem(path=stream_url)
         
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
@@ -78,7 +95,6 @@ def addDirectoryItem(name, parameters={}, pic="", folder=True):
         li.setProperty('IsPlayable', 'true')
     url = sys.argv[0] + '?' + urllib.urlencode(parameters)
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=li, isFolder=folder)
-
     
 def get_params():
     param = []

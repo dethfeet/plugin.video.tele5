@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="plugin.video.tele5" name="Tele 5" version="0.0.1" provider-name="dethfeet">
   <requires>
-    <import addon="xbmc.python" version="2.1.0"/>
+    <import addon="xbmc.python" version="2.0"/>
     <import addon="script.module.pyamf" version="0.6.1"/>
+    <import addon="script.module.urlresolver" version="1.0.9"/>
   </requires>
   <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>
@@ -19,5 +20,4 @@
   <forum>https://github.com/dethfeet/plugin.video.tele5/issues</forum>
   <website>https://github.com/dethfeet/plugin.video.tele5</website>
   <source>https://github.com/dethfeet/plugin.video.tele5</source>
-  <email>dethfeet@qip.ru</email>
 </addon>
