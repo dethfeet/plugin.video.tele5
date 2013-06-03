@@ -59,12 +59,13 @@ def episodePage(link):
         item = xbmcgui.ListItem(path=stream_url)
         item.setProperty('PlayPath', filename); 
     except KeyError:
+        print clip_info[0]['path']
         if clip_info[0]['path'] == "/":
             #YouTube oder Soundcloud
             _regexExtractIframe = re.compile("<iframe .*?src=\"(.*?)\".*?></iframe>")
             iframe_src = _regexExtractIframe.search(clip_info[0]['quelle']).group(1)
-            
-            if iframe_src.find('soundcloud'):
+            print iframe_src
+            if iframe_src.find('soundcloud') > -1:
                 #Soundcloud
                 _regexExtractSoundcloudId = re.compile("tracks%2F(.*?)&")
                 soundcloudId = _regexExtractSoundcloudId.search(iframe_src).group(1)
