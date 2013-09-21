@@ -5,83 +5,87 @@ import sys
 import urllib, urllib2
 import re
 
-import httplib
-
-from pyamf import AMF0, AMF3
-
-from pyamf import remoting
-from pyamf.remoting.client import RemotingService
-
-import urlresolver
-import json
-
 thisPlugin = int(sys.argv[1])
 
-baseUrl = "http://www.tele5.de/play"
+baseUrl = "http://www.tele5.de/videos.html"
 
 def mainPage():
     page = load_page(baseUrl)
-    _regex_extractShows = re.compile("<table class=\"play hidden\">(.*?)</table>", re.DOTALL)
+    _regex_extractShows = re.compile("<div class=\"videosGesamt\">(.*?)</div>", re.DOTALL)
     shows = _regex_extractShows.search(page).group(1)
 
-    _regex_extractShow = re.compile("<li>.*?href=\"(.*?)\".*?src=\"(.*?)\".*?<span>(.*?)</span>",re.DOTALL)
+    _regex_extractShow = re.compile("<a href=\"(.*?)\" >.*?<img src=\"(.*?)\".*?/>.*?<h3>(.*?)</h3>.*?</a>",re.DOTALL)
     
     for show in _regex_extractShow.finditer(shows):
-        img = baseUrl+'/../'+show.group(2)
-        title = unicode(show.group(3).replace("\n"," "), "latin-1")
-        addDirectoryItem(title, parameters={"action":"show", "link":show.group(1)}, pic=img, folder=True)
+        link = show.group(1)
+        img = show.group(2)
+        title = show.group(3)
+        addDirectoryItem(title, parameters={"action":"show", "link":link}, pic=img, folder=True)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 def showPage(link):
     link = urllib.unquote(link)
     css_class = urllib.unquote(link)[1:]
 
-    page = load_page(baseUrl+'/../'+link)
+    page = load_page(link)
     
-    _regex_extractEpisodes = re.compile("<table class=\""+css_class+" hidden\">(.*?)</table>", re.DOTALL)
+    _regex_extractEpisodes = re.compile("<div class=\"videosGesamt\">(.*?)</div>", re.DOTALL)
     episodes = _regex_extractEpisodes.search(page).group(1)
     
-    _regex_extractEpisode = re.compile("<li>.*?href=\"(.*?)\".*?src=\"(.*?)\".*?alt=\"(.*?)\"",re.DOTALL)
+    _regex_extractEpisode = re.compile("<a href=\"(.*?)\">.*?<img src=\"(.*?)\".*?/>.*?<h3>(.*?)</h3>.*?</a>",re.DOTALL)
     for episode in _regex_extractEpisode.finditer(episodes):
-        img = baseUrl+'/../'+episode.group(2)
-        title = episode.group(3).replace("\n"," ")
+        img = episode.group(2)
+        title = episode.group(3).replace("<br>"," ")
         addDirectoryItem(title, parameters={"action":"episode", "link":episode.group(1)}, pic=img, folder=False)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 def episodePage(link):
     link = urllib.unquote(link)
-    episode = link[1:]
-    clip_info = get_clip_info(episode)
-    
-    try:
-        filename = clip_info[0]['filename']
-        stream_url = clip_info[0]['path']
-        item = xbmcgui.ListItem(path=stream_url)
-        item.setProperty('PlayPath', filename); 
-    except KeyError:
-        print clip_info[0]['path']
-        if clip_info[0]['path'] == "/":
-            #YouTube oder Soundcloud
-            _regexExtractIframe = re.compile("<iframe .*?src=\"(.*?)\".*?></iframe>")
-            iframe_src = _regexExtractIframe.search(clip_info[0]['quelle']).group(1)
-            print iframe_src
-            if iframe_src.find('soundcloud') > -1:
-                #Soundcloud
-                _regexExtractSoundcloudId = re.compile("tracks%2F(.*?)&")
-                soundcloudId = _regexExtractSoundcloudId.search(iframe_src).group(1)
-                soundcloudPage = load_page("https://api.soundcloud.com/i1/tracks/"+soundcloudId+"/streams?client_id=0f8fdbbaa21a9bd18210986a7dc2d72c&format=json")
-                soundcloudJson = json.loads(soundcloudPage)
-                stream_url = soundcloudJson['http_mp3_128_url']
-            else:
-                #YouTube
-                stream_url = urlresolver.resolve(iframe_src)
-        else:
-            stream_url = baseUrl+"/../"+clip_info[0]['path']
-        item = xbmcgui.ListItem(path=stream_url)
+    page = load_page(link)
+
+    #medianac.nacamar.de
+    _regex_extractVideoId = re.compile("<param name=\"movie\" value=\".*?/(0_[a-z0-9]*)\" />")
+    videoIdRe = _regex_extractVideoId.search(page)
+    if videoIdRe:
+        videoId = videoIdRe.group(1)
         
+        videoUrl = ""
+        videoUrl += "http://medianac.nacamar.de/p/657/sp/65700/playManifest/entryId/"
+        videoUrl += videoId
+        videoUrl += "/format/rtmp/protocol/rtmp/cdnHost/medianac.nacamar.de/ks/"
+        
+        videoPage = load_page(videoUrl)
+        
+        _regex_extractBaseURL = re.compile("<baseURL>(.*?)</baseURL>")        
+        _regex_extractMedia = re.compile("<media url=\"(.*?)\" bitrate=\"([0-9]*)\" width=\"[0-9]*\" height=\"[0-9]*\"/>")
+        
+        baseURL = _regex_extractBaseURL.search(videoPage).group(1)
+        maxBitrate = 0
+        for media in _regex_extractMedia.finditer(videoPage):
+            bitrate = media.group(2)
+            if bitrate > maxBitrate:
+                playpath = media.group(1)
+                
+        stream_url = baseURL+"/"+playpath
+    else:
+        #YouTube
+        "//www.youtube.com/embed/RRDSj62tlvQ?rel=0"
+        _regex_extractVideoId = re.compile("//www.youtube.com/(embed|v)/(.*?)(\"|\?|\ |&)")
+        youTubeId = _regex_extractVideoId.search(page).group(2)
+        stream_url = "plugin://plugin.video.youtube/?action=play_video&videoid=" + youTubeId
+    
+    item = xbmcgui.ListItem(path=stream_url)
+  
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
     return False
-                                  
+ 
+def getText(nodelist):
+    rc = []
+    for node in nodelist:
+        if node.nodeType == node.TEXT_NODE:
+            rc.append(node.data)
+    return ''.join(rc)
+                                 
 def load_page(url):
     print url
     req = urllib2.Request(url)
@@ -114,28 +118,6 @@ def get_params():
                 param[splitparams[0]] = splitparams[1]
     
     return param
-
-def build_amf_request(clip_name):
-    env = remoting.Envelope(amfVersion=3)
-    env.bodies.append(
-        (
-            "/1",
-            remoting.Request(
-                target="tele5.getContentPlayer",
-                body=[clip_name],
-                envelope=env
-            )
-        )
-    )
-    return env
-
-def get_clip_info(clip_name):
-    conn = httplib.HTTPConnection("www.tele5.de")
-    envelope = build_amf_request(clip_name)
-    conn.request("POST", "/gateway/gateway.php", str(remoting.encode(envelope).read()), {'content-type': 'application/x-amf'})
-    response = conn.getresponse().read()
-    response = remoting.decode(response).bodies[0][1].body
-    return response
 
 if not sys.argv[2]:
     mainPage()
