@@ -63,8 +63,10 @@ def episodePage(link):
         maxBitrate = 0
         for media in _regex_extractMedia.finditer(videoPage):
             bitrate = media.group(2)
-            if bitrate > maxBitrate:
-                playpath = media.group(1)
+            tmpPlaypath =  media.group(1)
+            print tmpPlaypath[0:4]
+            if bitrate > maxBitrate and tmpPlaypath[0:4] == "mp4:":
+                playpath = tmpPlaypath
                 
         stream_url = baseURL+"/"+playpath
     else:
